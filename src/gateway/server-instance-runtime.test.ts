@@ -233,6 +233,18 @@ describe("createGatewayInstanceRuntime", () => {
           idempotencyKey: "main-session-restart-recovery:run-1:failed-notice",
         });
 
+        await expect(
+          runtime.recovery.sendRecoveryNotice({
+            channel: "signal",
+            to: "+15551234567",
+            accountId: "work",
+            threadId: "thread-1",
+            text: "Stale recovery notice",
+            idempotencyKey: "main-session-restart-recovery:run-2:failed-notice",
+            isCurrent: () => false,
+          }),
+        ).rejects.toThrow("Recovery notice owner retired before delivery");
+
         expect(sendText).toHaveBeenCalledOnce();
         expect(sendText).toHaveBeenCalledWith(
           expect.objectContaining({

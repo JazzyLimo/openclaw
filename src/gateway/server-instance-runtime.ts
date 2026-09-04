@@ -180,6 +180,9 @@ export function createGatewayInstanceRuntime(
         throw new Error("Gateway instance dispatch unavailable for recovery notice");
       }
       const { sendMessage } = await loadOutboundMessageRuntime();
+      if (payload.isCurrent?.() === false) {
+        throw new Error("Recovery notice owner retired before delivery");
+      }
       const context = options.getContext();
       const result = await sendMessage({
         cfg: context.getRuntimeConfig(),
