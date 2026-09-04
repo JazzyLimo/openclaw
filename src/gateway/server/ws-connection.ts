@@ -206,6 +206,7 @@ export function attachGatewayWsConnectionHandler(params: AttachGatewayWsConnecti
     let client: GatewayWsClient | null = null,
       closed = false;
     const [openedAt, connId] = [Date.now(), randomUUID()];
+    const connectionController = new AbortController();
     const ingressSocket = socket as GatewayIngressWebSocket;
     const connectionKind = ingressSocket[GATEWAY_WS_CONNECTION_KIND_PROPERTY] ?? "gateway";
     const publicWorkerIngress =
@@ -323,6 +324,7 @@ export function attachGatewayWsConnectionHandler(params: AttachGatewayWsConnecti
         return;
       }
       closed = true;
+      connectionController.abort();
       clearTimeout(handshakeTimer);
       stopKeepalive?.();
       cleanupWorkerConnection?.();
@@ -595,6 +597,8 @@ export function attachGatewayWsConnectionHandler(params: AttachGatewayWsConnecti
       close();
     };
     socket.once("close", (code, reason) => {
+      // Delivery subscriptions end before asynchronous node drain or history cleanup.
+      connectionController.abort();
       void handleSocketClose(code, reason).catch((error: unknown) => {
         logGateway.error(`websocket close cleanup failed conn=${connId}: ${formatError(error)}`);
         close();
@@ -630,6 +634,7 @@ export function attachGatewayWsConnectionHandler(params: AttachGatewayWsConnecti
         }
       }
       releasePreauthBudget();
+      next.connectionSignal = connectionController.signal;
       client = next;
       clients.add(next);
       if (
