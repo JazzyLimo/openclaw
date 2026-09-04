@@ -186,6 +186,7 @@ export async function startCodexAttemptThread(params: {
   spawnedBy: EmbeddedRunAttemptParams["spawnedBy"];
 }): Promise<StartCodexAttemptThreadResult> {
   const nativeContext = await prepareCodexSandboxNativeContext(params);
+  const agentDir = nativeContext?.agentDir ?? params.agentDir;
   const appServer = nativeContext?.appServer ?? params.appServer;
   let pluginAppServer = appServer;
   const startupRuntimeAuthProfileId =
@@ -275,7 +276,7 @@ export async function startCodexAttemptThread(params: {
                   }
                 : {}),
               agentId: params.sessionAgentId,
-              agentDir: params.agentDir,
+              agentDir,
               config: params.config,
               onStartedClient: (client) => {
                 // Timeout cleanup may fire before the client factory resolves;
@@ -316,7 +317,7 @@ export async function startCodexAttemptThread(params: {
               signal: startupAbandonController.signal,
             });
             ensureCodexAppServerClientRuntime(activeStartupClient, {
-              agentDir: params.agentDir,
+              agentDir,
               authProfileId: startupRuntimeAuthProfileId,
               authMode:
                 params.startupPreparedAuth?.kind === "api-key" ? "prepared-api-key" : "profile",
@@ -329,7 +330,7 @@ export async function startCodexAttemptThread(params: {
                 client: activeStartupClient,
                 pluginConfig: params.pluginConfig,
                 config: params.config,
-                agentDir: params.agentDir,
+                agentDir,
                 timeoutMs: appServer.requestTimeoutMs,
                 signal: startupAbandonController.signal,
               });
@@ -348,7 +349,7 @@ export async function startCodexAttemptThread(params: {
             const startupRuntimeIdentity = activeStartupClient.getRuntimeIdentity();
             const pluginAppCacheKey = buildCodexPluginAppCacheKey({
               appServer,
-              agentDir: params.agentDir,
+              agentDir,
               authProfileId: startupRuntimeAuthProfileId,
               accountId: params.startupAuthAccountCacheKey,
               envApiKeyFingerprint: params.startupEnvApiKeyCacheKey,
@@ -481,10 +482,12 @@ export async function startCodexAttemptThread(params: {
                 client: activeStartupClient,
                 reserveResumeThread,
                 bindingStore: params.bindingStore,
-                params: params.buildAttemptParams(),
+                params: nativeContext
+                  ? { ...params.buildAttemptParams(), agentDir }
+                  : params.buildAttemptParams(),
                 runtimeModelId: params.runtimeModelId,
                 agentId: params.sessionAgentId,
-                agentDir: params.agentDir,
+                agentDir,
                 cwd: startupExecutionCwd,
                 dynamicTools: params.dynamicTools,
                 persistentWebSearchAllowed: params.persistentWebSearchAllowed,
@@ -621,15 +624,10 @@ export async function startCodexAttemptThread(params: {
                 releaseSharedClientLease = undefined;
               }
               startupClientLease?.();
-              if (startupAbandoned || params.signal.aborted) {
-                if (startupClientForAbandonedRequestCleanup === startupClient) {
-                  startupClientForAbandonedRequestCleanup = undefined;
-                }
-                await closeCodexStartupClientBestEffort(startupClient);
-              } else if (
-                !isCodexAppServerStartSelectionChangedError(startupAttemptError) &&
-                (shouldClearSharedClientAfterStartupRace(startupAttemptError) ||
-                  shouldClearSharedClientAfterStartupFailure(startupAttemptError, params.spawnedBy))
+              if (
+                startupAbandoned ||
+                params.signal.aborted ||
+                shouldClearSharedClientAfterStartupFailure(startupAttemptError, params.spawnedBy)
               ) {
                 if (startupClientForAbandonedRequestCleanup === startupClient) {
                   startupClientForAbandonedRequestCleanup = undefined;
@@ -703,15 +701,10 @@ export async function startCodexAttemptThread(params: {
       releaseSharedClientLease,
     };
   } catch (error) {
-    if (params.signal.aborted || isCodexAppServerStartupError(error)) {
-      releaseSharedClientLease?.();
-      releaseSharedClientLease = undefined;
-      await closeCodexStartupClientBestEffort(startupClientForAbandonedRequestCleanup);
-      startupClientForAbandonedRequestCleanup = undefined;
-    } else if (
-      !isCodexAppServerStartSelectionChangedError(error) &&
-      (shouldClearSharedClientAfterStartupRace(error) ||
-        shouldClearSharedClientAfterStartupFailure(error, params.spawnedBy))
+    if (
+      params.signal.aborted ||
+      isCodexAppServerStartupError(error) ||
+      shouldClearSharedClientAfterStartupFailure(error, params.spawnedBy)
     ) {
       releaseSharedClientLease?.();
       releaseSharedClientLease = undefined;
@@ -724,10 +717,6 @@ export async function startCodexAttemptThread(params: {
   }
 }
 
-function shouldClearSharedClientAfterStartupRace(error: unknown): boolean {
-  return isCodexAppServerStartupError(error) || isCodexAppServerRequestTimeoutError(error);
-}
-
 function shouldClearSharedClientAfterStartupFailure(
   error: unknown,
   spawnedBy: EmbeddedRunAttemptParams["spawnedBy"],
@@ -735,8 +724,11 @@ function shouldClearSharedClientAfterStartupFailure(
   // Model-independent preflights preserve healthy conversations. A handoff with
   // an uncertain native write owns its retirement at the resume boundary.
   return (
-    !isCodexAppServerOverloadError(error) &&
-    !(error instanceof AgentHarnessPreflightError && error.scope === undefined) &&
-    (isCodexAppServerBrokenPipeError(error) || !spawnedBy)
+    !isCodexAppServerStartSelectionChangedError(error) &&
+    (isCodexAppServerStartupError(error) ||
+      isCodexAppServerRequestTimeoutError(error) ||
+      (!isCodexAppServerOverloadError(error) &&
+        !(error instanceof AgentHarnessPreflightError && error.scope === undefined) &&
+        (isCodexAppServerBrokenPipeError(error) || !spawnedBy)))
   );
 }

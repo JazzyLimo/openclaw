@@ -5,7 +5,7 @@
  */
 import fs from "node:fs";
 import path from "node:path";
-import { ensureDirectoryWithinRoot } from "@openclaw/fs-safe/advanced";
+import { ensureDirectoryWithinRoot } from "../../infra/fs-safe-advanced.js";
 import { isPathInside } from "../../infra/path-guards.js";
 import { splitSandboxBindSpec } from "./bind-spec.js";
 import { SANDBOX_AGENT_WORKSPACE_MOUNT } from "./constants.js";

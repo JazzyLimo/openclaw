@@ -4202,10 +4202,17 @@ describe("Codex app-server supervised branch lifecycle", () => {
     });
     const dynamicTools = [
       {
-        type: "function" as const,
-        name: "message",
-        description: "Send a message",
-        inputSchema: { type: "object", properties: {} },
+        type: "namespace" as const,
+        name: "openclaw_direct",
+        description: "Direct-only tools",
+        tools: [
+          {
+            type: "function" as const,
+            name: "message",
+            description: "Send a message",
+            inputSchema: { type: "object", properties: {} },
+          },
+        ],
       },
     ];
     const commonParams = {
@@ -4218,7 +4225,11 @@ describe("Codex app-server supervised branch lifecycle", () => {
       environmentSelection: [{ environmentId: "local", cwd: workspaceDir }],
       shellEnvironment: { GH_TOKEN: "", GITHUB_TOKEN: "" },
       disableLoginShell: true,
-      appServer: createThreadLifecycleAppServerOptions(),
+      appServer: {
+        ...createThreadLifecycleAppServerOptions(),
+        sessionRoot: workspaceDir,
+      },
+      nativeCodeModeOnlyEnabled: true,
       appServerRuntimeFingerprint: "codex-runtime-v1",
     };
 
@@ -4243,7 +4254,9 @@ describe("Codex app-server supervised branch lifecycle", () => {
       lastTurnId,
       excludeTurns: true,
       developerInstructions: agentWorkspaceDeveloperInstructions,
+      runtimeWorkspaceRoots: [workspaceDir],
       config: {
+        "features.code_mode": { direct_only_tool_namespaces: ["openclaw_direct"] },
         project_doc_max_bytes: 131_072,
         allow_login_shell: false,
         shell_environment_policy: {
@@ -4265,7 +4278,9 @@ describe("Codex app-server supervised branch lifecycle", () => {
       developerInstructions: agentWorkspaceDeveloperInstructions,
       dynamicTools,
       environments: [{ environmentId: "local", cwd: workspaceDir }],
+      runtimeWorkspaceRoots: [workspaceDir],
       config: {
+        "features.code_mode": { direct_only_tool_namespaces: ["openclaw_direct"] },
         project_doc_max_bytes: 131_072,
         allow_login_shell: false,
         shell_environment_policy: {
