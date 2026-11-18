@@ -1,3 +1,18 @@
+> ## ⚠️ ARCHIVED — 2026-11-18
+>
+> This repository is **read-only** and kept for reference only. It is not built, deployed or
+> maintained. Archiving does not delete anything: the code, history and releases remain
+> readable.
+>
+> - **What it was:** Public **fork** of [`openclaw/openclaw`](https://github.com/openclaw/openclaw), kept as a reference copy.
+> - **Why archived:** The fleet runs OpenClaw from released container images and the documented upgrade path, not from this fork. Upstream is the correct place for issues and pull requests.
+> - **Where it lives now:** `JazzyLimo/fleet-configs` holds the fleet's configuration and `JazzyLimo/openclaw-vps-scripts` the operational scripts. OpenClaw source stays upstream.
+> - **Host clone(s):** None — no host clone of this fork exists.
+> - **Last commit before archiving:** `e270ccbb`
+> - **To restore:** an owner unarchives it (Settings → Archive) and pushes normally.
+
+---
+
 # OpenClaw 🦞 — Your assistant, on your devices, in your chats
 
 <p align="center">
